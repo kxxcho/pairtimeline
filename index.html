@@ -66,6 +66,8 @@
 
     /* 두 명 정보 묶음 (Person Box) */
     .person-box { background: #f9f9fa; border: 1px solid #eaeaea; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
+    .person-box-common { background: #fff; border: 2px solid #111; }
+    .person-box-common h3 { margin: 0 0 15px 0; font-size: 14px; color: #111; font-weight: 900; text-align: center; }
     .person-box-a h3 { margin: 0 0 15px 0; font-size: 14px; color: var(--color-a); font-weight: 900; }
     .person-box-b h3 { margin: 0 0 15px 0; font-size: 14px; color: var(--color-b); font-weight: 900; }
 
@@ -114,6 +116,28 @@
     .layout-type-B .profile-col-a { order: 1; }
     .layout-type-B .timeline-col { order: 2; }
     .layout-type-B .profile-col-b { order: 3; }
+    
+    /* --- 페어명 + 배너 영역 (새로 추가) --- */
+    .pair-header { 
+        grid-column: 1 / -1; 
+        order: 0; 
+        display: flex; flex-direction: column; gap: 15px; 
+        width: 100%; margin-bottom: 0px; 
+        z-index: 2;
+    }
+    .pair-name { 
+        font-size: 58px; font-weight: 900; text-align: center; 
+        color: var(--color-common); letter-spacing: -1.5px; 
+        margin-bottom: 10px;
+    }
+    .pair-banner { 
+        width: 100%; height: 350px; background-color: var(--bg-color); 
+        border-radius: 12px; border: 3px solid #c9c9c9; 
+        background-size: 100%; background-position: 50% 50%; background-repeat: no-repeat; 
+        cursor: grab;
+    }
+    .pair-banner:active { cursor: grabbing; }
+    .banner-copyright { font-size: 11px; color: #888; font-weight: 600; text-align: right; margin-top: -5px; }
 
     /* 프로필 패널 (A, B) */
     .profile-col { display: flex; flex-direction: column; z-index: 2; }
@@ -202,6 +226,25 @@
             <label class="layout-btn" id="btn-layout-b">
                 <input type="radio" name="layout" value="B" onchange="changeLayout(this)"> B타입 (대칭)
             </label>
+        </div>
+
+        <div class="person-box person-box-common">
+            <h3>페어 상단 정보</h3>
+            <div class="input-group">
+                <input type="text" id="in-pair-name" placeholder="페어명 (예: 가상의 페어 이름)" oninput="updateUI()">
+            </div>
+            <div class="input-group">
+                <label>페어 배너 사진</label>
+                <input type="file" accept="image/*" onchange="readImg(this, 'banner')">
+                <div class="slider-group">
+                    <div class="slider-item"><span>확대</span><input type="range" id="in-photo-zoom-banner" min="50" max="400" value="100" oninput="updatePhotoSettings('banner')"></div>
+                    <div class="slider-item"><span>가로</span><input type="range" id="in-photo-x-banner" min="0" max="100" value="50" oninput="updatePhotoSettings('banner')"></div>
+                    <div class="slider-item"><span>세로</span><input type="range" id="in-photo-y-banner" min="0" max="100" value="50" oninput="updatePhotoSettings('banner')"></div>
+                </div>
+            </div>
+            <div class="input-group">
+                <input type="text" id="in-copyright-banner" placeholder="배너 사진 출처 (예: ⓒ KITKATPIC)" oninput="updateUI()">
+            </div>
         </div>
 
         <div class="person-box person-box-a">
@@ -311,6 +354,12 @@
             
             <div class="sticker-view" id="view-sticker" style="display: none; width: 150px; height: 150px;"></div>
 
+            <div class="pair-header">
+                <div class="pair-name" id="view-pair-name">페어명</div>
+                <div class="pair-banner" id="view-photo-banner"></div>
+                <div class="banner-copyright" id="view-copyright-banner" style="display:none;"></div>
+            </div>
+
             <div class="profile-col profile-col-a">
                 <div class="main-photo" id="view-photo-a"></div>
                 <div class="individual-copyright" id="view-copyright-a" style="display:none;"></div>
@@ -343,7 +392,7 @@
                 </div>
                 
                 <div class="timeline-list" id="timeline-view-list">
-                    </div>
+                </div>
             </div>
 
         </div>
@@ -367,9 +416,10 @@
         }
     }
 
-    // 메인 사진 드래그 & 휠 기능
+    // 사진 위치 조정 이벤트 적용
     function setupPhotoEvents(prefix) {
-        const el = document.getElementById(`view-photo-${prefix}`);
+        const el = document.getElementById('view-photo-' + prefix);
+        if (!el) return;
         let dragging = false, startX, startY;
         
         el.addEventListener('mousedown', (e) => { dragging = true; startX = e.clientX; startY = e.clientY; });
@@ -377,28 +427,35 @@
         window.addEventListener('mousemove', (e) => {
             if (!dragging) return;
             const dx = e.clientX - startX; const dy = e.clientY - startY;
-            let xVal = parseFloat(document.getElementById(`in-photo-x-${prefix}`).value);
-            let yVal = parseFloat(document.getElementById(`in-photo-y-${prefix}`).value);
-            xVal -= dx * 0.2; yVal -= dy * 0.2;
-            xVal = Math.max(0, Math.min(100, xVal)); yVal = Math.max(0, Math.min(100, yVal));
-            document.getElementById(`in-photo-x-${prefix}`).value = xVal;
-            document.getElementById(`in-photo-y-${prefix}`).value = yVal;
+            const xInput = document.getElementById('in-photo-x-' + prefix);
+            const yInput = document.getElementById('in-photo-y-' + prefix);
+            
+            if (xInput && yInput) {
+                let xVal = parseFloat(xInput.value);
+                let yVal = parseFloat(yInput.value);
+                xVal -= dx * 0.2; yVal -= dy * 0.2;
+                xVal = Math.max(0, Math.min(100, xVal)); yVal = Math.max(0, Math.min(100, yVal));
+                xInput.value = xVal;
+                yInput.value = yVal;
+                updatePhotoSettings(prefix);
+            }
             startX = e.clientX; startY = e.clientY;
-            updatePhotoSettings(prefix);
         });
+        
         el.addEventListener('wheel', (e) => {
             e.preventDefault(); 
-            let zVal = parseInt(document.getElementById(`in-photo-zoom-${prefix}`).value);
-            zVal += (e.deltaY < 0 ? 10 : -10);
-            zVal = Math.max(50, Math.min(400, zVal));
-            document.getElementById(`in-photo-zoom-${prefix}`).value = zVal;
-            updatePhotoSettings(prefix);
+            const zoomInput = document.getElementById('in-photo-zoom-' + prefix);
+            if (zoomInput) {
+                let zVal = parseInt(zoomInput.value);
+                zVal += (e.deltaY < 0 ? 10 : -10);
+                zVal = Math.max(50, Math.min(400, zVal));
+                zoomInput.value = zVal;
+                updatePhotoSettings(prefix);
+            }
         });
     }
 
-    setupPhotoEvents('a'); setupPhotoEvents('b');
-
-    // 스티커 마우스 드래그 이동 기능
+    // 마우스 드래그로 스티커 이동
     const stickerEl = document.getElementById('view-sticker');
     let isStickerDragging = false;
     let stStartX, stStartY, stStartLeft, stStartTop;
@@ -417,64 +474,98 @@
         e.preventDefault();
         const dx = e.clientX - stStartX;
         const dy = e.clientY - stStartY;
-        stickerEl.style.left = `${stStartLeft + dx}px`;
-        stickerEl.style.top = `${stStartTop + dy}px`;
+        stickerEl.style.left = (stStartLeft + dx) + 'px';
+        stickerEl.style.top = (stStartTop + dy) + 'px';
         stickerEl.style.right = 'auto'; 
     });
 
+    // 페이지 시작될 때 기본 세팅
     document.addEventListener('DOMContentLoaded', () => {
+        setupPhotoEvents('banner'); 
+        setupPhotoEvents('a'); 
+        setupPhotoEvents('b');
+        
         new Sortable(document.getElementById('tm-input-container'), {
             animation: 150, handle: '.drag-handle', onEnd: function () { updateUI(); }
         });
         updateUI(); 
     });
 
+    // 💥 오류를 완벽히 차단한 새 이미지 읽기 함수 💥
     function readImg(input, prefix) {
-        if (input.files && input.files[0]) {
+        if (input.files && input.files.length > 0) {
+            const file = input.files;
             const reader = new FileReader();
+            
             reader.onload = function(e) {
-                document.getElementById(`view-photo-${prefix}`).style.backgroundImage = `url('${e.target.result}')`;
-                updatePhotoSettings(prefix);
+                const result = e.target.result;
+                const el = document.getElementById('view-photo-' + prefix);
+                
+                if (el) {
+                    // 이미지 따옴표 충돌 문제를 없애고 100% 동작하도록 구조 수정
+                    el.style.backgroundImage = 'url("' + result + '")';
+                    updatePhotoSettings(prefix);
+                }
+                
+                // 똑같은 이미지를 다시 선택해도 업로드가 되도록 input 초기화
+                input.value = '';
             };
-            reader.readAsDataURL(input.files[0]);
+            
+            reader.onerror = function() {
+                alert("이미지를 불러오는 데 실패했습니다.");
+            };
+            
+            reader.readAsDataURL(file);
         }
     }
 
+    // 사진 크기/위치 조절 업데이트
     function updatePhotoSettings(prefix) {
-        const zoom = document.getElementById(`in-photo-zoom-${prefix}`).value;
-        const x = document.getElementById(`in-photo-x-${prefix}`).value;
-        const y = document.getElementById(`in-photo-y-${prefix}`).value;
-        const el = document.getElementById(`view-photo-${prefix}`);
-        el.style.backgroundSize = `${zoom}%`;
-        el.style.backgroundPosition = `${x}% ${y}%`;
+        const zoomEl = document.getElementById('in-photo-zoom-' + prefix);
+        const xEl = document.getElementById('in-photo-x-' + prefix);
+        const yEl = document.getElementById('in-photo-y-' + prefix);
+        const el = document.getElementById('view-photo-' + prefix);
+        
+        if (zoomEl && xEl && yEl && el) {
+            el.style.backgroundSize = zoomEl.value + '%';
+            el.style.backgroundPosition = xEl.value + '% ' + yEl.value + '%';
+        }
     }
 
+    // 스티커 파일 읽어오기
     function readStickerImg(input) {
-        if (input.files && input.files[0]) {
+        if (input.files && input.files.length > 0) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 const el = document.getElementById('view-sticker');
-                el.style.backgroundImage = `url('${e.target.result}')`;
-                el.style.display = 'block';
-                el.style.left = '40%';
-                el.style.top = '40%';
-                updateStickerSettings();
+                if (el) {
+                    el.style.backgroundImage = 'url("' + e.target.result + '")';
+                    el.style.display = 'block';
+                    el.style.left = '40%';
+                    el.style.top = '40%';
+                    updateStickerSettings();
+                }
+                input.value = ''; // 재업로드 허용
             };
-            reader.readAsDataURL(input.files[0]);
+            reader.readAsDataURL(input.files);
         }
     }
 
+    // 스티커 사이즈 조절
     function updateStickerSettings() {
-        const size = document.getElementById('in-sticker-size').value;
+        const sizeEl = document.getElementById('in-sticker-size');
         const el = document.getElementById('view-sticker');
-        el.style.width = `${size}px`; el.style.height = `${size}px`;
+        if (sizeEl && el) {
+            el.style.width = sizeEl.value + 'px'; 
+            el.style.height = sizeEl.value + 'px';
+        }
     }
 
     function addTimeline() {
         tmCount++;
         const container = document.getElementById('tm-input-container');
         const div = document.createElement('div');
-        div.className = 'tm-input-wrapper'; div.dataset.id = tmCount; div.id = `tm-input-${tmCount}`;
+        div.className = 'tm-input-wrapper'; div.dataset.id = tmCount; div.id = 'tm-input-' + tmCount;
         div.style = "background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 10px; position: relative; border: 1px solid #eee;";
         div.innerHTML = `
             <div class="owner-select">
@@ -496,10 +587,10 @@
         updateUI();
     }
 
-    function removeTimeline(id) { document.getElementById(`tm-input-${id}`).remove(); updateUI(); }
+    function removeTimeline(id) { document.getElementById('tm-input-' + id).remove(); updateUI(); }
 
     function addSubTimeline(parentId) {
-        const container = document.getElementById(`tm${parentId}-sub-container`);
+        const container = document.getElementById('tm' + parentId + '-sub-container');
         const div = document.createElement('div'); div.className = 'tm-sub-item-input';
         div.innerHTML = `
             <div class="tm-sub-inputs-col">
@@ -512,28 +603,51 @@
         updateUI();
     }
 
+    // 각 프로필 및 저작권 정보 화면에 업데이트
     function updatePersonUI(prefix) {
-        const copyVal = document.getElementById(`in-copyright-${prefix}`).value.trim();
-        const copyEl = document.getElementById(`view-copyright-${prefix}`);
-        if(copyVal) {
-            copyEl.innerText = copyVal.startsWith('ⓒ') ? copyVal : `ⓒ ${copyVal}`;
-            copyEl.style.display = 'block';
-        } else {
-            copyEl.style.display = 'none';
+        // 저작권 텍스트
+        const copyInput = document.getElementById('in-copyright-' + prefix);
+        const copyEl = document.getElementById('view-copyright-' + prefix);
+        if (copyInput && copyEl) {
+            const copyVal = copyInput.value.trim();
+            if (copyVal) {
+                copyEl.innerText = copyVal.startsWith('ⓒ') ? copyVal : 'ⓒ ' + copyVal;
+                copyEl.style.display = 'block';
+            } else {
+                copyEl.style.display = 'none';
+            }
         }
 
-        document.getElementById(`view-catch-${prefix}`).innerText = document.getElementById(`in-catch-${prefix}`).value || `캐치프레이즈 ${prefix.toUpperCase()}`;
-        document.getElementById(`view-name-${prefix}`).innerText = document.getElementById(`in-name-${prefix}`).value || `이름 ${prefix.toUpperCase()}`;
-        const descText = document.getElementById(`in-desc-${prefix}`).value;
-        document.getElementById(`view-desc-${prefix}`).innerHTML = descText ? descText.replace(/\n/g, '<br>') : `Person ${prefix.toUpperCase()}에 대한 자유로운 설명 추가`;
-        for(let i=1; i<=3; i++) {
-            const val = document.getElementById(`in-key${i}-${prefix}`).value;
-            const keyEl = document.getElementById(`view-key${i}-${prefix}`);
-            if(val) { keyEl.innerText = val; keyEl.style.display = 'inline-flex'; } 
-            else { keyEl.style.display = 'none'; }
+        // 캐치프레이즈, 이름
+        const catchInput = document.getElementById('in-catch-' + prefix);
+        const catchEl = document.getElementById('view-catch-' + prefix);
+        if (catchInput && catchEl) catchEl.innerText = catchInput.value || '캐치프레이즈 ' + prefix.toUpperCase();
+        
+        const nameInput = document.getElementById('in-name-' + prefix);
+        const nameEl = document.getElementById('view-name-' + prefix);
+        if (nameInput && nameEl) nameEl.innerText = nameInput.value || '이름 ' + prefix.toUpperCase();
+        
+        // 상세 설명
+        const descInput = document.getElementById('in-desc-' + prefix);
+        const descEl = document.getElementById('view-desc-' + prefix);
+        if (descInput && descEl) {
+            const descText = descInput.value;
+            descEl.innerHTML = descText ? descText.replace(/\n/g, '<br>') : 'Person ' + prefix.toUpperCase() + '에 대한 자유로운 설명 추가';
+        }
+
+        // 키워드
+        for (let i = 1; i <= 3; i++) {
+            const valInput = document.getElementById('in-key' + i + '-' + prefix);
+            const keyEl = document.getElementById('view-key' + i + '-' + prefix);
+            if (valInput && keyEl) {
+                const val = valInput.value;
+                if (val) { keyEl.innerText = val; keyEl.style.display = 'inline-flex'; } 
+                else { keyEl.style.display = 'none'; }
+            }
         }
     }
 
+    // 전체 UI 화면에 반영 (색상, 타임라인 등)
     function updateUI() {
         const colorA = document.getElementById('in-color-a').value;
         const colorB = document.getElementById('in-color-b').value;
@@ -542,22 +656,39 @@
         document.documentElement.style.setProperty('--color-b', colorB);
         document.documentElement.style.setProperty('--color-common', colorCommon);
 
-        document.getElementById('view-timeline-title').innerText = document.getElementById('in-timeline-title').value || 'OUR HISTORY';
+        // 페어명 업데이트
+        const pairNameInput = document.getElementById('in-pair-name');
+        if (pairNameInput) {
+            document.getElementById('view-pair-name').innerText = pairNameInput.value || '페어명';
+        }
         
+        // 타임라인 제목 업데이트
+        const tmTitleInput = document.getElementById('in-timeline-title');
+        if (tmTitleInput) {
+            document.getElementById('view-timeline-title').innerText = tmTitleInput.value || 'OUR HISTORY';
+        }
+        
+        // 좌우 프로필 및 배너 저작권 업데이트
         updatePersonUI('a');
         updatePersonUI('b');
+        updatePersonUI('banner'); // 배너 저작권도 공통 함수로 처리!
 
+        // 타임라인 내용 업데이트
         const vContainer = document.getElementById('timeline-view-list');
         vContainer.innerHTML = ''; 
 
         const wrappers = document.querySelectorAll('.tm-input-wrapper');
         wrappers.forEach((wrapper) => {
             const id = wrapper.dataset.id;
-            const date = document.getElementById(`in-tm${id}-date`).value || '연도/날짜';
-            const title = document.getElementById(`in-tm${id}-title`).value || '사건 제목';
-            const desc = document.getElementById(`in-tm${id}-desc`).value;
+            const dateInput = document.getElementById('in-tm' + id + '-date');
+            const titleInput = document.getElementById('in-tm' + id + '-title');
+            const descInput = document.getElementById('in-tm' + id + '-desc');
+
+            const date = dateInput ? dateInput.value || '연도/날짜' : '';
+            const title = titleInput ? titleInput.value || '사건 제목' : '';
+            const desc = descInput ? descInput.value : '';
             
-            const ownerRadio = wrapper.querySelector(`input[name="tm_owner_${id}"]:checked`);
+            const ownerRadio = wrapper.querySelector('input[name="tm_owner_' + id + '"]:checked');
             const ownerVal = ownerRadio ? ownerRadio.value : 'BOTH';
             
             let applyColor = 'var(--color-common)';
@@ -567,7 +698,7 @@
             const subItems = wrapper.querySelectorAll('.tm-sub-item-input');
             let subListHTML = '';
             if (subItems.length > 0) {
-                subListHTML = `<div class="tl-sub-list">`;
+                subListHTML = '<div class="tl-sub-list">';
                 subItems.forEach(item => {
                     const dateVal = item.querySelector('.sub-input-date').value;
                     const textVal = item.querySelector('.sub-input-text').value;
@@ -577,12 +708,11 @@
                         subListHTML += `<div class="tl-sub-item"><div class="tl-sub-dot" style="background: ${applyColor};"></div><div class="tl-sub-content">${dateHTML}${textHTML}</div></div>`;
                     }
                 });
-                subListHTML += `</div>`;
+                subListHTML += '</div>';
             }
 
             const descHTML = desc ? `<div class="tl-desc">${desc.replace(/\n/g, '<br>')}</div>` : '';
             
-            /* 타임라인 점 디자인: 회색테두리-흰색-테마색 3중 구조로 변경하여 html2canvas 그림자 누락 문제 해결 */
             const itemHTML = `
                 <div class="tl-item">
                     <div class="tl-marker-col">
@@ -604,11 +734,11 @@
         });
     }
 
+    // 최종 이미지 다운로드
     function captureBoard() {
-        // 캡처 대상을 바깥 배경이 아닌 흰색 보드 자체로 지정해서 회색 여백을 제거합니다.
         const target = document.getElementById('preview-board');
         html2canvas(target, { 
-            backgroundColor: null, // 바깥 여백 투명/흰색 처리
+            backgroundColor: null, 
             scale: 3, 
             useCORS: true, 
             allowTaint: true, 
