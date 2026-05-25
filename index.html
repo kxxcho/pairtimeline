@@ -750,20 +750,38 @@
     }
 
     function captureBoard() {
-        const target = document.getElementById('preview-board');
-        // 캡처 시 html2canvas는 대상 엘리먼트 자체를 캡처하므로 부모의 scale(0.6)에 영향받지 않고 선명한 원본 크기로 저장됩니다.
+    const wrapper = document.getElementById('capture-wrapper');
+    const target = document.getElementById('preview-board');
+
+    // 1. 기존 스타일(축소 배율 및 애니메이션) 상태 저장
+    const originalTransform = wrapper.style.transform;
+    const originalTransition = wrapper.style.transition;
+
+    // 2. 캡처 전, 임시로 화면 축소 효과 및 트랜지션 해제 (원본 크기로 렌더링 유도)
+    wrapper.style.transition = 'none';
+    wrapper.style.transform = 'scale(1)';
+
+    // 3. 브라우저가 원본 크기를 화면에 반영할 수 있도록 아주 짧은 지연(0.1초) 후 캡처 실행
+    setTimeout(() => {
         html2canvas(target, { 
             backgroundColor: null, 
-            scale: 3, 
+            scale: 3, // 이미지를 더 선명하게 하려면 4로 올려도 좋습니다.
             useCORS: true, 
             allowTaint: true, 
             logging: false 
         })
         .then(canvas => {
-            let link = document.createElement('a'); link.download = `KITKATPIC_DUO_${Date.now()}.png`; 
-            link.href = canvas.toDataURL('image/png', 1.0); link.click();
+            let link = document.createElement('a'); 
+            link.download = `KITKATPIC_DUO_${Date.now()}.png`; 
+            link.href = canvas.toDataURL('image/png', 1.0); 
+            link.click();
+
+            // 4. 이미지 저장이 완료되면 다시 원래 사용자가 보던 축소 화면으로 복구
+            wrapper.style.transform = originalTransform;
+            wrapper.style.transition = originalTransition;
         });
-    }
+    }, 100);
+}
 
 </script>
 </body>
